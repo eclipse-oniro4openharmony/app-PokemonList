@@ -1,7 +1,5 @@
 import { BASE_URL, PokemonDataSource, MyDataSource } from '../data/DataSource';
 import { Pokemon, PokeInformation, PokeInfo, PokeTypeContent, PokeType } from '../Model/Pokemon';
-import { BusinessError } from '@ohos.base';
-import router from '@ohos.router';
 
 AppStorage.setOrCreate<string>("pokeName", '');
 AppStorage.setOrCreate<number>("PokeId", 0);
@@ -41,7 +39,8 @@ struct Index {
         // 初始化数据和图片 URL
         this.pokeList.forEach((item, index) => {
           this.dataSet.pushData(item);
-          this.pokeList[index].image = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${index + 1}.png`;
+          this.pokeList[index].image =
+            `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${index + 1}.png`;
         });
 
         // 获取每个宝可梦的类型，并存储到 typeList
@@ -159,7 +158,7 @@ struct Index {
               AppStorage.setOrCreate("pokeName", item.name);
               AppStorage.setOrCreate("pokeId", index + 1);
               AppStorage.setOrCreate("pokeImage", item.image);
-              router.pushUrl({
+              this.getUIContext().getRouter().pushUrl({
                 url: 'pages/PokeDetail',
               })
             })
@@ -206,7 +205,7 @@ struct Index {
             AppStorage.setOrCreate("pokeName", item.name);
             AppStorage.setOrCreate("pokeId", index + 1);
             AppStorage.setOrCreate("pokeImage", item.image);
-            router.pushUrl({
+            this.getUIContext().getRouter().pushUrl({
               url: 'pages/PokeDetail',
             })
           })

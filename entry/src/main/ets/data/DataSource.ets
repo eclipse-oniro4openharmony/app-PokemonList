@@ -1,9 +1,8 @@
 import { Pokemon, PokemonResponse, PokeInfo, PokeInformation } from '../Model/Pokemon';
 import { EvolutionData, EvolutionChainUrl, PokemonSpecies } from '../Model/Revolution'
-import http from '@ohos.net.http';
+import { http } from '@kit.NetworkKit';
 import { AbilityData, EffectEntry, PokemonData } from '../Model/AbilityEffect';
 import { DamageRelations, PokemonTypeData } from '../Model/Type';
-
 const BASE_URL: string = "https://pokeapi.co/api/v2/pokemon?offset=0&limit=1000"
 
 class PokemonDataSource {

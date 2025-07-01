@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { PokemonDataSource } from '../data/DataSource';
 import { Ability, AbilityInfo, PokeInformation, Pokemon, PokeType } from '../Model/Pokemon';
 import { EvolutionChain, EvolutionData, Species } from '../Model/Revolution';
@@ -106,105 +105,92 @@ struct PokeDetail {
   PokemonTypes() {
     // 使用 forEach 遍历数组并渲染每个类型
     ForEach(this.types, (item: PokeType) => {
-      Row(){
+      Row() {
         if (item.name == 'grass') {
           Text(`${item.name}`)
             .typeStyle(Color.Green, Color.White)
-        }
-        else if (item.name == 'poison') {
+        } else if (item.name == 'poison') {
           Text(`${item.name}`)
             .typeStyle('#ff82139f', Color.White)
-        }
-        else if (item.name == 'flying') {
+        } else if (item.name == 'flying') {
           Text(`${item.name}`)
             .typeStyle('#ffb8afb8')
-        }
-        else if (item.name == 'bug') {
+        } else if (item.name == 'bug') {
           Text(`${item.name}`)
             .typeStyle('#ff1f7033', Color.White)
-        }
-        else if (item.name == 'fire') {
+        } else if (item.name == 'fire') {
           Text(`${item.name}`)
             .typeStyle('#ffbe4110', Color.White)
-        }
-        else if (item.name == 'ice') {
+        } else if (item.name == 'ice') {
           Text(`${item.name}`)
             .typeStyle('#ff69b4ea')
-        }
-        else if (item.name == 'ground') {
+        } else if (item.name == 'ground') {
           Text(`${item.name}`)
             .typeStyle('#ff6b5326', Color.White)
-        }
-        else if (item.name == 'rock') {
+        } else if (item.name == 'rock') {
           Text(`${item.name}`)
             .typeStyle('#ff726035', Color.White)
-        }
-        else if (item.name == 'water') {
+        } else if (item.name == 'water') {
           Text(`${item.name}`)
             .typeStyle('#ff0561ab', Color.White)
-        }
-        else if (item.name == 'electric') {
+        } else if (item.name == 'electric') {
           Text(`${item.name}`)
             .typeStyle('#ffe7e434', Color.White)
-        }
-        else if (item.name == 'steel') {
+        } else if (item.name == 'steel') {
           Text(`${item.name}`)
             .typeStyle('#ff82139f', Color.White)
-        }
-        else if (item.name == 'dragon') {
+        } else if (item.name == 'dragon') {
           Text(`${item.name}`)
             .typeStyle('#ff82139f', Color.White)
-        }
-        else if (item.name == 'normal') {
+        } else if (item.name == 'normal') {
           Text(`${item.name}`)
             .typeStyle('#ff5f5d5f', Color.White)
-        }
-        else if (item.name == 'fairy') {
+        } else if (item.name == 'fairy') {
           Text(`${item.name}`)
             .typeStyle('#ffa72ca7', Color.White)
-        }
-        else if (item.name == 'fighting') {
+        } else if (item.name == 'fighting') {
           Text(`${item.name}`)
             .typeStyle('#ffb05804', Color.White)
-        }
-        else if (item.name == 'psychic') {
+        } else if (item.name == 'psychic') {
           Text(`${item.name}`)
             .typeStyle('#ffd42dd4', Color.White)
-        }
-        else if (item.name == 'ghost') {
+        } else if (item.name == 'ghost') {
           Text(`${item.name}`)
             .typeStyle('#ff660566', Color.White)
         }
       }
-      .onClick(()=>{
-        // console.info(`Clicked:${item.url}`)
-        router.pushUrl({url: 'pages/TypeDetail',
-        params:{
-          url: item.url,
-          typeName: item.name
-        }})
+      .onClick(() => {
+        this.getUIContext().getRouter().pushUrl({
+          url: 'pages/TypeDetail',
+          params: {
+            url: item.url,
+            typeName: item.name
+          }
+        })
       })
     })
   }
 
   @Builder
-  NavigationComponent(){
-    Row(){
+  NavigationComponent() {
+    Row() {
       Navigation()
         .title(this.NavigationTitle())
         .height(56)
         .width('50%')
         .titleMode(NavigationTitleMode.Mini)
 
-      Row(){
+      Row() {
         Image($r('app.media.home_icon'))
           .width(30)
           .margin({
             right: 20
           })
-          .onClick(()=>{
-            router.clear()
-            router.pushUrl({url: 'pages/Index'})
+          .onClick(() => {
+            this.getUIContext().getRouter().clear()
+            this.getUIContext().getRouter().pushUrl({
+              url: 'pages/Index'
+            })
           })
 
       }
@@ -320,8 +306,7 @@ struct PokeDetail {
                     .fontColor('#3c000000')
                     .fontWeight(500)
                     .fontSize(18)
-                }
-                else {
+                } else {
                   Text(`${item.ability.name}`)
                     .fontWeight(500)
                     .fontSize(18)
@@ -333,10 +318,9 @@ struct PokeDetail {
                 AppStorage.setOrCreate("url", this.abilityUrlList[index]);
                 AppStorage.setOrCreate("abilityName", item.ability.name);
 
-                router.pushUrl({
+                this.getUIContext().getRouter().pushUrl({
                   url: 'pages/AbilityDetail',
                 })
-                // console.info(`Index:${index} clicked!`)
               })
             })
           }
@@ -373,8 +357,9 @@ struct PokeDetail {
                     .onClick(() => {
                       AppStorage.setOrCreate("pokeName", item.name);
                       AppStorage.setOrCreate("pokeId", extractLastNumber(item.url));
-                      AppStorage.setOrCreate("pokeImage", `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${extractLastNumber(item.url)}.png`);
-                      router.pushUrl({
+                      AppStorage.setOrCreate("pokeImage",
+                        `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${extractLastNumber(item.url)}.png`);
+                      this.getUIContext().getRouter().pushUrl({
                         url: 'pages/PokeDetail'
                       })
                     })

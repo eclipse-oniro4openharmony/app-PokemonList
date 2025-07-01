@@ -1,4 +1,3 @@
-import router from '@ohos.router'
 import { PokemonDataSource } from '../data/DataSource'
 import { DamageRelations, TypeInfo } from '../Model/Type'
 import { HttpErrorComponent, LoadComponent } from './Index'
@@ -19,7 +18,7 @@ struct TypeDetail {
   scroller: Scroller = new Scroller()
 
   onPageShow() {
-    const params = router.getParams() as RouterParams
+    const params = this.getUIContext().getRouter().getParams() as RouterParams
     this.url = params.url
     this.typeName = params.typeName
   }
@@ -35,8 +34,7 @@ struct TypeDetail {
       if (code === 200) {
         try {
           this.damageRelation = await source.getTypeDetail(this.url);
-        }
-        catch (error) {
+        } catch (error) {
           console.error('Error fetching Pokémon info:', error);
         } finally {
           this.isLoading = false; // 确保加载状态正确更新
@@ -78,8 +76,10 @@ struct TypeDetail {
             right: 20
           })
           .onClick(() => {
-            router.clear()
-            router.pushUrl({ url: 'pages/Index' })
+            this.getUIContext().getRouter().clear()
+            this.getUIContext().getRouter().pushUrl({
+              url: 'pages/Index'
+            })
           })
 
       }
@@ -95,79 +95,64 @@ struct TypeDetail {
       if (item.name == 'grass') {
         Text(`${item.name}`)
           .typeStyle(Color.Green, Color.White)
-      }
-      else if (item.name == 'poison') {
+      } else if (item.name == 'poison') {
         Text(`${item.name}`)
           .typeStyle('#ff82139f', Color.White)
-      }
-      else if (item.name == 'flying') {
+      } else if (item.name == 'flying') {
         Text(`${item.name}`)
           .typeStyle('#ffb8afb8')
-      }
-      else if (item.name == 'bug') {
+      } else if (item.name == 'bug') {
         Text(`${item.name}`)
           .typeStyle('#ff1f7033', Color.White)
-      }
-      else if (item.name == 'fire') {
+      } else if (item.name == 'fire') {
         Text(`${item.name}`)
           .typeStyle('#ffbe4110', Color.White)
-      }
-      else if (item.name == 'ice') {
+      } else if (item.name == 'ice') {
         Text(`${item.name}`)
           .typeStyle('#ff69b4ea')
-      }
-      else if (item.name == 'ground') {
+      } else if (item.name == 'ground') {
         Text(`${item.name}`)
           .typeStyle('#ff6b5326', Color.White)
-      }
-      else if (item.name == 'rock') {
+      } else if (item.name == 'rock') {
         Text(`${item.name}`)
           .typeStyle('#ff726035', Color.White)
-      }
-      else if (item.name == 'water') {
+      } else if (item.name == 'water') {
         Text(`${item.name}`)
           .typeStyle('#ff0561ab', Color.White)
-      }
-      else if (item.name == 'electric') {
+      } else if (item.name == 'electric') {
         Text(`${item.name}`)
           .typeStyle('#ffe7e434', Color.White)
-      }
-      else if (item.name == 'steel') {
+      } else if (item.name == 'steel') {
         Text(`${item.name}`)
           .typeStyle('#ff82139f', Color.White)
-      }
-      else if (item.name == 'dragon') {
+      } else if (item.name == 'dragon') {
         Text(`${item.name}`)
           .typeStyle('#ff82139f', Color.White)
-      }
-      else if (item.name == 'normal') {
+      } else if (item.name == 'normal') {
         Text(`${item.name}`)
           .typeStyle('#ff5f5d5f', Color.White)
-      }
-      else if (item.name == 'fairy') {
+      } else if (item.name == 'fairy') {
         Text(`${item.name}`)
           .typeStyle('#ffa72ca7', Color.White)
-      }
-      else if (item.name == 'fighting') {
+      } else if (item.name == 'fighting') {
         Text(`${item.name}`)
           .typeStyle('#ffb05804', Color.White)
-      }
-      else if (item.name == 'psychic') {
+      } else if (item.name == 'psychic') {
         Text(`${item.name}`)
           .typeStyle('#ffd42dd4', Color.White)
-      }
-      else if (item.name == 'ghost') {
+      } else if (item.name == 'ghost') {
         Text(`${item.name}`)
           .typeStyle('#ff660566', Color.White)
       }
     }
     .onClick(() => {
-      // console.info(`Clicked:${item.url}`)
-      router.replaceUrl({ url: 'pages/TypeDetail',
+      this.getUIContext().getRouter().replaceUrl({
+        url: 'pages/TypeDetail',
         params: {
           url: item.url,
           typeName: item.name
-        } })
+        }
+      })
     })
   }
 
