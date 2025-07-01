@@ -50,7 +50,7 @@ jobs:
 
       - name: Set up tools and dependencies
         uses: eclipse-oniro4openharmony/oh-app-action@main
-        
+
       - name: Verify Installation
         run: |
           echo "=== Environment Variables ==="

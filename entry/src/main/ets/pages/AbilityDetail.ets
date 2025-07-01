@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { PokemonDataSource } from '../data/DataSource';
 import { EffectEntry, Language, Pokemon, PokemonData } from '../Model/AbilityEffect';
 import { extractLastNumber } from '../utils/unitFormatConverter';
@@ -63,11 +62,9 @@ struct AbilityDetail {
           }
 
           // console.info(`item: ${this.effectInfo.effect}`)
-        }
-        catch (error) {
+        } catch (error) {
           console.error('Error fetching Pokémon info:', error);
-        }
-        finally {
+        } finally {
           this.isLoading = false;
         }
       } else {
@@ -77,6 +74,7 @@ struct AbilityDetail {
     })
 
   }
+
   @Builder
   NavigationTitle() {
     Column() {
@@ -92,23 +90,25 @@ struct AbilityDetail {
   }
 
   @Builder
-  NavigationComponent(){
-    Row(){
+  NavigationComponent() {
+    Row() {
       Navigation()
         .title(this.NavigationTitle())
         .height(56)
         .width('50%')
         .titleMode(NavigationTitleMode.Mini)
 
-      Row(){
+      Row() {
         Image($r('app.media.home_icon'))
           .width(30)
           .margin({
             right: 20
           })
-          .onClick(()=>{
-            router.clear()
-            router.pushUrl({url: 'pages/Index'})
+          .onClick(() => {
+            this.getUIContext().getRouter().clear()
+            this.getUIContext().getRouter().pushUrl({
+              url: 'pages/Index'
+            })
           })
 
       }
@@ -184,7 +184,7 @@ struct AbilityDetail {
           List({ scroller: this.scroller }) {
             ForEach(this.abilityPokemonList, (item: Pokemon) => {
               ListItem() {
-                Row({space: 30}) {
+                Row({ space: 30 }) {
                   Image(`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${extractLastNumber(item.url)}.png`)// 显示图片
                     .width(100)// 设置图片宽度
                     .height(100)
@@ -198,15 +198,17 @@ struct AbilityDetail {
                     .fontSize(20)
                 }
               }
-              .onClick(()=>{
+              .onClick(() => {
                 AppStorage.setOrCreate("pokeName", item.name);
                 AppStorage.setOrCreate("pokeId", extractLastNumber(item.url));
-                AppStorage.setOrCreate("pokeImage", `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${extractLastNumber(item.url)}.png`);
-                router.pushUrl({
+                AppStorage.setOrCreate("pokeImage",
+                  `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${extractLastNumber(item.url)}.png`);
+                this.getUIContext().getRouter().pushUrl({
                   url: 'pages/PokeDetail'
                 })
               })
-            })
+            }
+            )
           }
         }
         .width('100%')
@@ -215,7 +217,12 @@ struct AbilityDetail {
       .width('100%')
       .layoutWeight(1)
     }
-    .width('100%')
-    .height('100%')
+
+    .width
+    ('100%'
+    )
+    .height
+    ('100%'
+    )
   }
 }
