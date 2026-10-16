@@ -1,228 +1,189 @@
 import { PokemonDataSource } from '../data/DataSource';
-import { EffectEntry, Language, Pokemon, PokemonData } from '../Model/AbilityEffect';
+import { EffectEntry, Pokemon } from '../Model/AbilityEffect';
 import { extractLastNumber } from '../utils/unitFormatConverter';
 import { HttpErrorComponent, LoadComponent } from './Index';
 
-interface RouterParams {
-  url: string,
-  name: string
+interface AbilityRouterParams {
+  url: string;
+  abilityName: string;
 }
 
 @Entry
 @Component
 struct AbilityDetail {
-  @State url: string = AppStorage.get("url") as string
-  @State abilityName: string = AppStorage.get("abilityName") as string
-  @State isLoading: boolean = false
-  @State httpCode: number = 0
-  private effectEntry: EffectEntry[] = []
-  @State effectInfo: EffectEntry = new EffectEntry()
-  private abilityPokemonData: PokemonData[] = []
-  @State abilityPokemonList: Pokemon[] = []
-  scroller: Scroller = new Scroller()
-  @State pokeName: string = AppStorage.get("pokeName") as string
-  @State pokeId: number = AppStorage.get("pokeId") as number
-  @State image: string = AppStorage.get("pokeImage") as string
-
-  // onPageShow() {
-  //   const params = router.getParams() as RouterParams
-  //   this.url = params.url
-  //   this.abilityName = params.name
-  // }
+  @State url: string = '';
+  @State abilityName: string = '';
+  @State isLoading: boolean = false;
+  @State errorMessage: string = '';
+  @State effectInfo: EffectEntry = new EffectEntry();
+  @State abilityPokemonList: Pokemon[] = [];
+  private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
-    this.isLoading = true
-    const source = new PokemonDataSource();
-    source.fetchHttpCode().then(async (code) => {
-      this.httpCode = code
-      if (code == 200) {
-        try {
-          this.effectEntry = await source.getAbilityInfo(this.url)
-          this.abilityPokemonData = await source.getAbilityPokemon(this.url)
+    const params = this.getUIContext().getRouter().getParams() as AbilityRouterParams;
+    if (!params || !params.url) {
+      this.errorMessage = 'This ability could not be opened. Return to the Pokémon and try again.';
+      return;
+    }
+    this.url = params.url;
+    this.abilityName = params.abilityName;
+    this.loadAbility();
+  }
 
-          if (Array.isArray(this.effectEntry)) {
-            for (const item of this.effectEntry) {
-              if (item.language?.name === 'en') {
-                this.effectInfo.effect = item.effect;
-                this.effectInfo.short_effect = item.short_effect;
-                break;
-              }
-            }
-          }
+  private async loadAbility(): Promise<void> {
+    this.isLoading = true;
+    this.errorMessage = '';
+    try {
+      const source = new PokemonDataSource();
+      const ability = await source.getAbilityDetail(this.url);
+      const englishEffect = ability.effect_entries.find((item) => item.language?.name === 'en');
+      this.effectInfo = englishEffect || new EffectEntry();
+      this.abilityPokemonList = ability.pokemon.map((item) => item.pokemon);
+    } catch (error) {
+      console.error('Failed to load ability:', error);
+      this.errorMessage = 'Could not load ability. Check your connection and try again.';
+    } finally {
+      this.isLoading = false;
+    }
+  }
 
-          if (Array.isArray(this.abilityPokemonData)) {
-            for (const item of this.abilityPokemonData) {
-              this.abilityPokemonList.push(item.pokemon)
-              // console.info(item.pokemon.name)
-            }
-          }
-
-          if (Array.isArray(this.effectEntry)) {
-
-          }
-
-          // console.info(`item: ${this.effectInfo.effect}`)
-        } catch (error) {
-          console.error('Error fetching Pokémon info:', error);
-        } finally {
-          this.isLoading = false;
+  private openPokemon(item: Pokemon): void {
+    const id = extractLastNumber(item.url);
+    try {
+      this.getUIContext().getRouter().pushUrl({
+        url: 'pages/PokeDetail',
+        params: {
+          pokeName: item.name,
+          pokeId: id,
+          pokeImage: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`
         }
-      } else {
-        this.isLoading = false;
-        console.error('Failed to fetch data: HTTP Code', code);
-      }
-    })
-
-  }
-
-  @Builder
-  NavigationTitle() {
-    Column() {
-      Text('Ability')
-        .fontColor('#182431')
-        .fontSize(26)
-        .fontWeight(500)
+      });
+    } catch (error) {
+      console.error('Could not open Pokémon details:', error);
     }
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Start)
-    .height('100%')
-    .width('100%')
   }
 
   @Builder
-  NavigationComponent() {
+  Header() {
     Row() {
-      Navigation()
-        .title(this.NavigationTitle())
-        .height(56)
-        .width('50%')
-        .titleMode(NavigationTitleMode.Mini)
-
-      Row() {
-        Image($r('app.media.home_icon'))
-          .width(30)
-          .margin({
-            right: 20
-          })
-          .onClick(() => {
-            this.getUIContext().getRouter().clear()
-            this.getUIContext().getRouter().pushUrl({
-              url: 'pages/Index'
-            })
-          })
-
-      }
-      .layoutWeight(1)
-      .justifyContent(FlexAlign.End)
+      Text('Ability')
+        .fontSize(26)
+        .fontWeight(800)
+        .fontColor('#0F0026')
+        .layoutWeight(1);
+      Image($r('app.media.home_icon'))
+        .width(28)
+        .height(28)
+        .focusable(true)
+        .accessibilityText('Home')
+        .onClick(() => {
+          this.getUIContext().getRouter().clear();
+          this.getUIContext().getRouter().pushUrl({ url: 'pages/Index' });
+        });
     }
     .width('100%')
+    .padding({ top: 12, bottom: 8 });
+  }
+
+  @Builder
+  PokemonRow(item: Pokemon) {
+    Row({ space: 12 }) {
+      Image(`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${extractLastNumber(item.url)}.png`)
+        .width(60)
+        .height(60)
+        .backgroundColor('#F8F3FF')
+        .borderRadius(14);
+      Text(item.name)
+        .fontSize(17)
+        .fontWeight(700)
+        .fontColor('#0F0026')
+        .layoutWeight(1)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis });
+      Text(`#${extractLastNumber(item.url)}`)
+        .fontSize(13)
+        .fontColor('#5E5470');
+    }
+    .width('100%')
+    .padding(12)
+    .backgroundColor('#FFFFFF')
+    .borderRadius(16)
+    .margin({ bottom: 10 });
   }
 
   build() {
-    Column({ space: 20 }) {
-      this.NavigationComponent()
+    Column({ space: 12 }) {
+      this.Header();
       if (this.isLoading) {
-        LoadComponent() // 显示加载组件
-      }
-      if (this.httpCode == -1) {
-        HttpErrorComponent({
-          text: 'Can\'t connect to the server'
-        })
-      }
-      Row() {
-        Text(`${this.abilityName}`)
-          .fontSize(40)
-          .fontWeight(800)
-      }
+        LoadComponent({ label: 'Loading ability…' });
+      } else if (this.errorMessage.length > 0) {
+        HttpErrorComponent({ text: this.errorMessage });
+        Button('Retry')
+          .backgroundColor('#6024B5')
+          .onClick(() => this.loadAbility());
+      } else {
+        Scroll() {
+          Column({ space: 16 }) {
+            Text(this.abilityName)
+              .fontSize(30)
+              .fontWeight(800)
+              .fontColor('#0F0026')
+              .width('100%')
+              .padding(20)
+              .backgroundColor('#FFFFFF')
+              .borderRadius(18);
 
-      Column() {
-        Row() {
-          Text('Effect')
-            .fontWeight(600)
-            .fontSize(25)
-        }
-        .width('100%')
-        .justifyContent(FlexAlign.Start)
+            Column({ space: 10 }) {
+              Text('Effect')
+                .fontWeight(700)
+                .fontSize(20)
+                .fontColor('#0F0026');
+              Text(this.effectInfo.short_effect || 'No English effect description is available.')
+                .fontSize(16)
+                .fontColor('#0F0026')
+                .lineHeight(24);
+            }
+            .width('100%')
+            .alignItems(HorizontalAlign.Start)
+            .padding(18)
+            .backgroundColor('#FFFFFF')
+            .borderRadius(16);
 
-
-        Row() {
-          Text(`${this.effectInfo.short_effect}`)
-            .fontSize(20)
-            .fontWeight(500)
-        }
-      }
-
-
-      Column() {
-        Row() {
-          Text(`Pokémon with ${this.abilityName}`)
-            .fontWeight(600)
-            .fontSize(25)
-        }
-        .width('100%')
-
-        Column() {
-          Row({ space: 60 }) {
-            Text('Image')
-              .margin({
-                left: 20
-              })
+            Text(`Pokémon with ${this.abilityName}`)
+              .fontWeight(700)
               .fontSize(20)
+              .fontColor('#0F0026');
 
-            Text('Name')
-              .fontSize(20)
-
-            Text('ID')
-              .fontSize(20)
-              .margin({
-                left: 50
-              })
+            if (this.abilityPokemonList.length === 0) {
+              Text('No Pokémon are listed for this ability.')
+                .fontSize(16)
+                .fontColor('#5E5470')
+                .width('100%')
+                .padding(18)
+                .backgroundColor('#FFFFFF')
+                .borderRadius(16);
+            } else {
+              List({ scroller: this.scroller }) {
+                ForEach(this.abilityPokemonList, (item: Pokemon) => {
+                  ListItem() {
+                    this.PokemonRow(item);
+                  }
+                  .onClick(() => this.openPokemon(item));
+                }, (item: Pokemon) => item.url);
+              }
+              .height(400);
+            }
           }
           .width('100%')
-          .height(40)
-
-          List({ scroller: this.scroller }) {
-            ForEach(this.abilityPokemonList, (item: Pokemon) => {
-              ListItem() {
-                Row({ space: 30 }) {
-                  Image(`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${extractLastNumber(item.url)}.png`)// 显示图片
-                    .width(100)// 设置图片宽度
-                    .height(100)
-
-                  Text(`${item.name}`)
-                    .fontWeight(600)
-                    .fontSize(20)
-                    .width(140)
-
-                  Text(`${extractLastNumber(item.url)}`)
-                    .fontSize(20)
-                }
-              }
-              .onClick(() => {
-                AppStorage.setOrCreate("pokeName", item.name);
-                AppStorage.setOrCreate("pokeId", extractLastNumber(item.url));
-                AppStorage.setOrCreate("pokeImage",
-                  `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${extractLastNumber(item.url)}.png`);
-                this.getUIContext().getRouter().pushUrl({
-                  url: 'pages/PokeDetail'
-                })
-              })
-            }
-            )
-          }
+          .padding({ bottom: 24 })
+          .alignItems(HorizontalAlign.Start);
         }
-        .width('100%')
-
+        .layoutWeight(1);
       }
-      .width('100%')
-      .layoutWeight(1)
     }
-
-    .width
-    ('100%'
-    )
-    .height
-    ('100%'
-    )
+    .width('100%')
+    .height('100%')
+    .padding({ left: 16, right: 16 })
+    .backgroundColor('#F8F3FF');
   }
 }
