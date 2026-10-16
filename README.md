@@ -1,122 +1,72 @@
 # PokemonList
 
-## Introduction 
-`Pokemon Book` is a Pokémon type and attribute details viewing tool that helps users quickly understand Pokémon's attribute restraint relationships, skill effects, and related data.
+PokemonList is an OpenHarmony example for browsing Pokémon, their types, abilities, and evolution data on default and tablet devices.
 
+## What this example demonstrates
 
-## Overview
-![Alt text](PokeImage/image_1.png)
-![Alt text](PokeImage/image_2.png)
-![Alt text](PokeImage/image_3.png)
-![Alt text](PokeImage/image_4.png)
+| Capability | API or platform service | Where to look |
+| --- | --- | --- |
+| Load and search a Pokémon list, then fetch types for visible rows | ArkUI `Search` and `LazyForEach` with `IDataSource` | [Index.ets](entry/src/main/ets/pages/Index.ets), [DataSource.ets](entry/src/main/ets/data/DataSource.ets) |
+| Request and parse Pokémon data | `@kit.NetworkKit` HTTP client and PokéAPI | [DataSource.ets](entry/src/main/ets/data/DataSource.ets) |
+| Open Pokémon, type, and ability details | ArkUI router and detail pages | [PokeDetail.ets](entry/src/main/ets/pages/PokeDetail.ets), [TypeDetail.ets](entry/src/main/ets/pages/TypeDetail.ets), [AbilityDetail.ets](entry/src/main/ets/pages/AbilityDetail.ets) |
 
-This is a documentation lists all the problems or noticeable thing during the app development.
-### Table of content
+## Preview
 
-[Time difference of asynchronous data loading](#time-difference-of-asynchronous-data-loading)  
-[How to properly encapsulate Json data](#how-to-properly-encapsulate-json-data)  
-[Encapsulate nested JSON data structure](#encapsulate-nested-json-data-structure)  
-[Intercept part of the data in the URL](#intercept-part-of-the-data-in-the-url)  
-[The list data rendered by forEach is undefined](#the-list-data-rendered-by-foreach-is-undefined)  
-##  Time difference of asynchronous data loading
+![Pokémon detail screen on a Volla X23 phone](docs/images/pokemonlist-phone.jpeg)
 
-#### Problem Background
-This is a relatively troublesome problem because it involves the time difference of data rendering. For example, when I render the `Index` page, the list has not been rendered yet, and we access the unrendered Pokémon unit to get the `type`, which results in an error
+## Requirements
 
-(The problem encountered is caused by the time difference between asynchronous loading and rendering. When the data has not been fully loaded, the code tries to access undefined properties, resulting in a compilation error "Object is possibly 'undefined'.")
-#### Solution
-We must ensure the order of asynchronous operations. Use `Promise` or `async/await` to ensure that all data is loaded before performing subsequent operations. For example, `Promise.all` can be used to handle multiple asynchronous calls.
+- Node.js 20 or later, a JDK (the [CI build](.github/workflows/build.yml) uses JDK 17), and Oniro App Builder 0.10.0.
+- The OpenHarmony 6.1 (API 23) SDK and command-line tools. The [build profile](build-profile.example.json5) compiles and targets API 23 and declares compatibility with API 20.
+- An OpenHarmony device supported by the module's `default` or `tablet` [device types](entry/src/main/module.json5) for running the app.
+- Internet access to `pokeapi.co` for data and `raw.githubusercontent.com` for sprites. The module requests `ohos.permission.INTERNET`.
 
-The general logic is as follows:
-```typescript
-        const list = await source.getPokemonList();
-        this.pokeList = list;
-        // Get the type of each Pokémon and store it in typeList
-        const infoPromises = this.pokeList.map((item, index) =>
-        source.getPokemonType(index).then((types) => {
-          this.typeList[index] = types; // Store type array into two-dimensional array typeList
-        })
-        );
+## Build and run
 
-        await Promise.all(infoPromises); // Wait for all asynchronous tasks to complete
+Run these commands from the repository root:
+
+```sh
+npm install -g @oniroproject/oniro-app@0.10.0
+oniro-app sdk install 6.1
+oniro-app cmdtools install
+cp build-profile.example.json5 build-profile.json5
+oniro-app sign
+oniro-app build --json
 ```
 
+In Windows PowerShell, use `Copy-Item build-profile.example.json5 build-profile.json5` in place of `cp`. The generated profile and `signatures/` hold local development signing material. `oniro-app sign` uses development credentials; release distribution requires separate signing credentials and provisioning.
 
-##  How to properly encapsulate Json data
-#### Problem Background
-Unable to parse the requested `Http Get` JSON data when writing the `DataSource` data source.
+With a connected device, install and launch the signed build from the repository root:
 
-#### Solution
-We need to design `model` or `interface` reasonably to make requests, and further split according to the model structure of the request
-```typescript
-  async getTypeDetail(url: string): Promise<DamageRelations> {
-    return new Promise<DamageRelations>((resolve, reject) => {
-      let httpRequest = http.createHttp()
-      httpRequest.request(`${url}`, (err, data) => {
-        if (!err) {
-          try {
-            // parse requested JSON data and receive with designed model
-            let responseData: PokemonTypeData = JSON.parse(data.result as string)
-            const res: DamageRelations = responseData.damage_relations
-            resolve(res)
-          } catch (parseErr) {
-            console.error('JSON Parse Error', parseErr);
-            reject(err);
-          }
-        } else {
-          console.error('HTTP Error:', err);
-          reject(err);
-        }
-      })
-    })
-  }
-```
-Taking the above example, after we call `http.createHttp()`, we need a suitable data type to receive the parsed data. `PokemonTypeData` in the above example is
-
-In addition, each split structure must be reasonably encapsulated before use
-
-##  Encapsulate nested JSON data structure
-To solve this problem, a recursive function is used
-
-```typescript
-this.evolutionSpecies = this.extractSpeciesNames(this.pokeEvolution.chain as EvolutionChain)
-
-  // Recursive method to extract species names
-  extractSpeciesNames(chain: EvolutionChain, result: Species[] = []): Species[] {
-    result.push({
-      name: chain.species.name,
-      url: chain.species.url
-    });
-    chain.evolves_to.forEach((nextChain) => {
-      this.extractSpeciesNames(nextChain, result);
-    });
-    return result;
-  }
+```sh
+oniro-app app install
+oniro-app app launch
 ```
 
+The build produces `entry/build/default/outputs/default/entry-default-signed.hap`. Device installation and launch are manual steps.
 
-## Intercept part of the data in the URL
-#### Problem Description
-In some special cases, we need to intercept a part of a string in a specific format. In this example, we need to intercept the last number of `url`
+## Use
 
-#### Solution
-```typescript
-function extractLastNumber(url: string): number {
-  const parts = url.split('/').filter((part) => part !== ''); // Split by slash and filter out empty strings
-  const lastPart = parts[parts.length - 1]; // Get the last part
-  return parseInt(lastPart, 10); // Convert to a number and back
-}
-```
+Open the list and search by Pokémon name. Select a Pokémon to see its height, weight, types, abilities, and evolution chain. Select a type for attack and defense relationships, or an ability for its English effect and related Pokémon.
 
-## The list data rendered by forEach is undefined
-Directly accessing asynchronously updated values ​​inside forEach may result in inconsistent data state. You can use a for loop to process them one by one instead.
-```typescript
-if (Array.isArray(this.effectEntry))
-for(const item of this.effectEntry){
-    if (item.language?.name === 'en') {
-    this.effectInfo.language = item.language;
-    this.effectInfo.short_effect = item.short_effect;
-    break;
-    }
-}
-```
+## Explore the implementation
+
+[EntryAbility.ets](entry/src/main/ets/entryability/EntryAbility.ets) loads the list page. [Index.ets](entry/src/main/ets/pages/Index.ets) manages search, navigation, and visible-row type requests; [DataSource.ets](entry/src/main/ets/data/DataSource.ets) handles network requests. The three detail pages render Pokémon, type, and ability data. See [Implementation](docs/implementation.md) for the current data flow and error handling.
+
+## Verify
+
+The repository build can be checked with `oniro-app build --json`. On a device, load the list, search, scroll quickly and stop, open a Pokémon, then open a type, ability, and evolution entry. Disconnect and reconnect the network to check the error and retry paths.
+
+## Limitations
+
+The app depends on live PokéAPI responses and remote sprite images; it has no offline data cache. Type labels load after list rows appear. API 20 compatibility is declared in the build profile; behavior on each device and OS version still needs device verification.
+
+## Contributing
+
+These apps are focused examples of specific platform capabilities. Contributions that keep an example correct, buildable, and clear are welcome, including bug fixes, documentation and setup corrections, and improvements to its existing behavior. Please keep pull requests within the app's stated purpose and describe how you verified the change.
+
+**Found a problem but can't fix it?** Open an issue in this repository; a pull request is not required. For a bug or broken build, include the steps to reproduce it, what you expected, what happened, and your device, OS, and SDK/API version. Logs or screenshots are helpful when available. You can also open an issue for inaccurate or unclear documentation.
+
+## License
+
+The repository includes the Apache License, Version 2.0 text in [LICENSE](LICENSE). This statement does not establish rights to Pokémon names, artwork, or remotely loaded sprites.

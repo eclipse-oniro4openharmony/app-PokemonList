@@ -6,11 +6,16 @@ interface Pokemon {
   image: string,
 }
 
+interface PokemonListItem {
+  name: string;
+  url: string;
+}
+
 interface PokemonResponse {
   count: number;
   next: string | null;
   previous: string | null;
-  results: Pokemon[];
+  results: PokemonListItem[];
 }
 
 interface PokeType {
@@ -47,6 +52,7 @@ interface PokeInfo {
   name: string,
   types: PokeTypeContent[],
   abilities: AbilityInfo[],
+  species: PokeType,
 }
 
 
@@ -59,6 +65,7 @@ class PokeInformation implements PokeInfo {
   name: string = ''
   types: PokeTypeContent[] = []
   abilities: AbilityInfo[] = []
+  species: PokeType = { name: '', url: '' }
 }
 
 interface AbilityInfo{
@@ -75,4 +82,5 @@ class Ability {
 
 
 
-export { AbilityInfo, Ability, Pokemon, PokeInfo, PokemonResponse, PokeType, PokeInformation, PokeTypeContent }
+export { AbilityInfo, Ability, Pokemon, PokemonListItem, PokeInfo, PokemonResponse, PokeType, PokeInformation,
+  PokeTypeContent }

@@ -12,21 +12,28 @@ jobs:
   build:
     runs-on: oniro-runner
     container:
-      image: francescopham/oniro-builder:6.0
-    env:
-      HOME: /root
+      image: node:20-bookworm
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build and sign app
+      - name: Install API 23 build tools
         run: |
-          cd "$GITHUB_WORKSPACE"
-          onirobuilder sign
-          onirobuilder build
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl git openjdk-17-jdk-headless unzip
+          npm install -g @oniroproject/oniro-app@0.10.0
+          oniro-app sdk install 6.1
+          oniro-app cmdtools install
 
-      - name: Upload built sample_app
+      - name: Sign and build app
+        run: |
+          cp build-profile.example.json5 build-profile.json5
+          oniro-app sign
+          oniro-app build --json
+
+      - name: Upload signed HAP
         uses: actions/upload-artifact@v4
         with:
-          name: HAP packages
-          path: entry/build/default/outputs/default
+          name: pokemonlist-signed-hap
+          path: entry/build/default/outputs/default/*-signed.hap
+          if-no-files-found: error

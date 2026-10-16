@@ -1,86 +1,95 @@
 import { PokemonDataSource } from '../data/DataSource';
-import { Ability, AbilityInfo, PokeInformation, Pokemon, PokeType } from '../Model/Pokemon';
+import { AbilityInfo, PokeInformation, PokeType } from '../Model/Pokemon';
 import { EvolutionChain, EvolutionData, Species } from '../Model/Revolution';
 import { extractLastNumber, heightConverter, weightConverter } from '../utils/unitFormatConverter';
-import { HttpErrorComponent, LoadComponent } from './Index'
+import { HttpErrorComponent, LoadComponent } from './Index';
 
-AppStorage.setOrCreate<string>("url", '');
-AppStorage.setOrCreate<string>("abilityName", '');
+interface PokemonRouterParams {
+  pokeName: string;
+  pokeId: number;
+  pokeImage: string;
+}
 
 @Entry
 @Component
 struct PokeDetail {
-  @State pokeName: string = AppStorage.get("pokeName") as string
-  @State pokeId: number = AppStorage.get("pokeId") as number
-  @State image: string = AppStorage.get("pokeImage") as string
-  @State isLoading: boolean = false
-  @State httpCode: number = 0
-  @State pokeInfo: PokeInformation = new PokeInformation()
-  @State types: PokeType[] = []
-  @State abilities: AbilityInfo[] = []
-  @State pokeEvolution: EvolutionData = new EvolutionData()
-  @State abilityUrlList: string[] = []
-  @State evolutionSpecies: Species[] = []
-  private scroller: Scroller = new Scroller()
-  @State source: string = ''
+  @State pokeName: string = '';
+  @State pokeId: number = 0;
+  @State image: string = '';
+  @State isLoading: boolean = false;
+  @State errorMessage: string = '';
+  @State isEvolutionLoading: boolean = false;
+  @State evolutionError: boolean = false;
+  @State pokeInfo: PokeInformation = new PokeInformation();
+  @State types: PokeType[] = [];
+  @State abilities: AbilityInfo[] = [];
+  @State pokeEvolution: EvolutionData = new EvolutionData();
+  @State evolutionSpecies: Species[] = [];
+  private scroller: Scroller = new Scroller();
 
-  aboutToAppear() {
-    this.isLoading = true;
-
-    const source = new PokemonDataSource();
-
-    source.fetchHttpCode().then(async (code) => {
-      this.httpCode = code;
-
-      if (code === 200) {
-        try {
-          // 异步获取宝可梦信息
-          this.pokeInfo = await source.getPokemonInfo(this.pokeId - 1);
-
-          //Get evolution chain url
-          const url: string = await source.getEvolutionUrl(this.pokeId)
-
-          // 异步获取宝可梦进化链
-          this.pokeEvolution = await source.getEvolutionChain(url);
-
-
-          // console.info(`url: ${url}`)
-          // 提取进化链物种名称
-          this.evolutionSpecies = this.extractSpeciesNames(this.pokeEvolution.chain as EvolutionChain)
-          // 提取类型名称并存储为字符串数组
-          if (Array.isArray(this.pokeInfo.types)) {
-            this.types = this.pokeInfo.types.map((type) => {
-              return type.type as PokeType
-            });
-          }
-
-          //Fetch Pokemon abilities
-          if (Array.isArray(this.pokeInfo.abilities)) {
-            this.abilities = this.pokeInfo.abilities
-            //Get current Pokemon's all ability detail's url route
-            this.abilities.forEach((item) => {
-              this.abilityUrlList.push(item.ability.url)
-            })
-          }
-
-        } catch (error) {
-          console.error('Error fetching Pokémon info:', error);
-        } finally {
-          this.isLoading = false; // 确保加载状态正确更新
-        }
-      } else {
-        this.isLoading = false; // 如果 HTTP 请求失败
-        console.error('Failed to fetch data: HTTP Code', code);
-      }
-    });
+  aboutToAppear(): void {
+    const params = this.getUIContext().getRouter().getParams() as PokemonRouterParams;
+    if (!params || params.pokeId <= 0) {
+      this.errorMessage = 'This Pokémon could not be opened. Return to the list and try again.';
+      return;
+    }
+    this.pokeName = params.pokeName;
+    this.pokeId = params.pokeId;
+    this.image = params.pokeImage;
+    this.loadPokemon();
   }
 
-  // 提取物种名称的递归方法
-  extractSpeciesNames(chain: EvolutionChain, result: Species[] = []): Species[] {
-    result.push({
-      name: chain.species.name,
-      url: chain.species.url
-    });
+  private async loadPokemon(): Promise<void> {
+    this.isLoading = true;
+    this.errorMessage = '';
+    this.evolutionError = false;
+    this.evolutionSpecies = [];
+    if (this.pokeId <= 0) {
+      this.errorMessage = 'This Pokémon could not be opened. Return to the list and try again.';
+      this.isLoading = false;
+      return;
+    }
+    try {
+      const source = new PokemonDataSource();
+      this.pokeInfo = await source.getPokemonInfo(this.pokeId);
+      this.types = this.pokeInfo.types.map((item) => item.type as PokeType);
+      this.abilities = this.pokeInfo.abilities;
+    } catch (error) {
+      console.error('Failed to load Pokémon:', error);
+      const message = `${error}`;
+      this.errorMessage = message.includes('HTTP 429') ?
+        'PokéAPI is temporarily busy (HTTP 429). Please try again shortly.' :
+        message.includes('HTTP 404') ?
+          'This Pokémon was not found (HTTP 404). Return to the list and try again.' :
+          'Could not load Pokémon details. Check your connection and try again.';
+      return;
+    } finally {
+      this.isLoading = false;
+    }
+    this.loadEvolution();
+  }
+
+  private async loadEvolution(): Promise<void> {
+    this.isEvolutionLoading = true;
+    this.evolutionError = false;
+    this.evolutionSpecies = [];
+    try {
+      const source = new PokemonDataSource();
+      const url = await source.getEvolutionUrl(this.pokeInfo.species.url);
+      this.pokeEvolution = await source.getEvolutionChain(url);
+      if (this.pokeEvolution.chain) {
+        this.evolutionSpecies = this.extractSpeciesNames(this.pokeEvolution.chain);
+      }
+    } catch (error) {
+      console.warn('Failed to load evolution chain:', error);
+      this.evolutionError = true;
+    } finally {
+      this.isEvolutionLoading = false;
+    }
+  }
+
+  private extractSpeciesNames(chain: EvolutionChain, result: Species[] = []): Species[] {
+    result.push({ name: chain.species.name, url: chain.species.url });
     chain.evolves_to.forEach((nextChain) => {
       this.extractSpeciesNames(nextChain, result);
     });
@@ -88,316 +97,227 @@ struct PokeDetail {
   }
 
   @Builder
-  NavigationTitle() {
-    Column() {
-      Text('Pokemon')
-        .fontColor('#182431')
+  Header() {
+    Row() {
+      Text('Pokémon')
         .fontSize(26)
-        .fontWeight(500)
+        .fontWeight(800)
+        .fontColor('#0F0026')
+        .layoutWeight(1);
+      Image($r('app.media.home_icon'))
+        .width(28)
+        .height(28)
+        .focusable(true)
+        .accessibilityText('Home')
+        .onClick(() => {
+          this.getUIContext().getRouter().clear();
+          this.getUIContext().getRouter().pushUrl({ url: 'pages/Index' });
+        });
     }
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Start)
-    .height('100%')
     .width('100%')
+    .padding({ top: 12, bottom: 8 });
   }
 
   @Builder
   PokemonTypes() {
-    // 使用 forEach 遍历数组并渲染每个类型
-    ForEach(this.types, (item: PokeType) => {
-      Row() {
-        if (item.name == 'grass') {
-          Text(`${item.name}`)
-            .typeStyle(Color.Green, Color.White)
-        } else if (item.name == 'poison') {
-          Text(`${item.name}`)
-            .typeStyle('#ff82139f', Color.White)
-        } else if (item.name == 'flying') {
-          Text(`${item.name}`)
-            .typeStyle('#ffb8afb8')
-        } else if (item.name == 'bug') {
-          Text(`${item.name}`)
-            .typeStyle('#ff1f7033', Color.White)
-        } else if (item.name == 'fire') {
-          Text(`${item.name}`)
-            .typeStyle('#ffbe4110', Color.White)
-        } else if (item.name == 'ice') {
-          Text(`${item.name}`)
-            .typeStyle('#ff69b4ea')
-        } else if (item.name == 'ground') {
-          Text(`${item.name}`)
-            .typeStyle('#ff6b5326', Color.White)
-        } else if (item.name == 'rock') {
-          Text(`${item.name}`)
-            .typeStyle('#ff726035', Color.White)
-        } else if (item.name == 'water') {
-          Text(`${item.name}`)
-            .typeStyle('#ff0561ab', Color.White)
-        } else if (item.name == 'electric') {
-          Text(`${item.name}`)
-            .typeStyle('#ffe7e434', Color.White)
-        } else if (item.name == 'steel') {
-          Text(`${item.name}`)
-            .typeStyle('#ff82139f', Color.White)
-        } else if (item.name == 'dragon') {
-          Text(`${item.name}`)
-            .typeStyle('#ff82139f', Color.White)
-        } else if (item.name == 'normal') {
-          Text(`${item.name}`)
-            .typeStyle('#ff5f5d5f', Color.White)
-        } else if (item.name == 'fairy') {
-          Text(`${item.name}`)
-            .typeStyle('#ffa72ca7', Color.White)
-        } else if (item.name == 'fighting') {
-          Text(`${item.name}`)
-            .typeStyle('#ffb05804', Color.White)
-        } else if (item.name == 'psychic') {
-          Text(`${item.name}`)
-            .typeStyle('#ffd42dd4', Color.White)
-        } else if (item.name == 'ghost') {
-          Text(`${item.name}`)
-            .typeStyle('#ff660566', Color.White)
-        }
-      }
-      .onClick(() => {
-        this.getUIContext().getRouter().pushUrl({
-          url: 'pages/TypeDetail',
-          params: {
-            url: item.url,
-            typeName: item.name
-          }
-        })
-      })
-    })
+    Row({ space: 8 }) {
+      ForEach(this.types, (item: PokeType) => {
+        Text(item.name)
+          .fontSize(14)
+          .fontWeight(700)
+          .fontColor('#6024B5')
+          .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+          .backgroundColor('#F8F3FF')
+          .borderRadius(12)
+          .onClick(() => {
+            this.getUIContext().getRouter().pushUrl({
+              url: 'pages/TypeDetail',
+              params: { url: item.url, typeName: item.name }
+            });
+          });
+      }, (item: PokeType) => item.url);
+    }
   }
 
   @Builder
-  NavigationComponent() {
+  FactRow(label: string, value: string) {
     Row() {
-      Navigation()
-        .title(this.NavigationTitle())
-        .height(56)
-        .width('50%')
-        .titleMode(NavigationTitleMode.Mini)
-
-      Row() {
-        Image($r('app.media.home_icon'))
-          .width(30)
-          .margin({
-            right: 20
-          })
-          .onClick(() => {
-            this.getUIContext().getRouter().clear()
-            this.getUIContext().getRouter().pushUrl({
-              url: 'pages/Index'
-            })
-          })
-
-      }
-      .layoutWeight(1)
-      .justifyContent(FlexAlign.End)
+      Text(label)
+        .fontSize(15)
+        .fontColor('#5E5470')
+        .layoutWeight(1);
+      Text(value)
+        .fontSize(16)
+        .fontWeight(700)
+        .fontColor('#0F0026');
     }
-    .width('100%')
+    .width('100%');
+  }
+
+  @Builder
+  EvolutionItem(item: Species) {
+    Column({ space: 4 }) {
+      Image(`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${extractLastNumber(item.url)}.png`)
+        .width(80)
+        .height(80);
+      Text(item.name)
+        .fontSize(15)
+        .fontWeight(700)
+        .fontColor('#0F0026')
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis });
+      Text(`#${extractLastNumber(item.url)}`)
+        .fontSize(13)
+        .fontColor('#5E5470');
+    }
+    .width(116)
+    .padding(10)
+    .backgroundColor('#F8F3FF')
+    .borderRadius(14);
   }
 
   build() {
-    Column({ space: 10 }) {
-      this.NavigationComponent()
+    Column({ space: 12 }) {
+      this.Header();
       if (this.isLoading) {
-        LoadComponent() // 显示加载组件
-      }
-      if (this.httpCode == -1) {
-        HttpErrorComponent({
-          text: 'Can\'t connect to the server'
-        })
-      }
-      Scroll() {
-        Column() {
-          Row() {
-            Column() {
+        LoadComponent();
+      } else if (this.errorMessage.length > 0) {
+        HttpErrorComponent({ text: this.errorMessage });
+        Button('Retry')
+          .backgroundColor('#6024B5')
+          .onClick(() => this.loadPokemon());
+      } else {
+        Scroll() {
+          Column({ space: 16 }) {
+            Column({ space: 8 }) {
               Image(this.image)
                 .width(150)
-                .height(150)
+                .height(150);
+              Text(this.pokeName)
+                .fontSize(28)
+                .fontWeight(800)
+                .fontColor('#0F0026')
+                .textAlign(TextAlign.Center);
+              Text(`#${this.pokeId}`)
+                .fontSize(15)
+                .fontWeight(600)
+                .fontColor('#6024B5');
             }
-            .justifyContent(FlexAlign.Center)
-            .width('40%')
-            .height('100%')
+            .width('100%')
+            .padding(18)
+            .backgroundColor('#FFFFFF')
+            .borderRadius(18);
+
+            Column({ space: 14 }) {
+              Text('Details')
+                .fontSize(20)
+                .fontWeight(700)
+                .fontColor('#0F0026');
+              this.FactRow('Height', `${heightConverter(this.pokeInfo.height)} m`);
+              this.FactRow('Weight', `${weightConverter(this.pokeInfo.weight)} kg`);
+              Text('Types')
+                .fontSize(15)
+                .fontColor('#5E5470');
+              this.PokemonTypes();
+            }
+            .width('100%')
+            .alignItems(HorizontalAlign.Start)
+            .padding(18)
+            .backgroundColor('#FFFFFF')
+            .borderRadius(18);
 
             Column({ space: 10 }) {
-              Row() {
-                Text(`${this.pokeName}`)
-                  .fontWeight(800)
-                  .fontSize(25)
-              }
-              .width('100%')
-              .justifyContent(FlexAlign.Center)
-
-              Row() {
-                Text('No.')
-                  .labelStyle()
-                Text(`${this.pokeId}`)
-                  .fontWeight(600)
-              }
-              .width('100%')
-
-              Divider()
-                .strokeWidth(1)
-
-              Row() {
-                Text('Type')
-                  .fontColor('#56000000')
-                  .fontWeight(700)
-                this.PokemonTypes()
-              }
-              .width('100%')
-
-              Divider()
-                .strokeWidth(1)
-              Row() {
-                Text('Height')
-                  .labelStyle()
-                Text(`${heightConverter(this.pokeInfo.height)} m`)
-                  .fontWeight(600)
-              }
-              .width('100%')
-
-              Divider()
-                .strokeWidth(1)
-              Row() {
-                Text('Weight')
-                  .labelStyle()
-                Text(`${weightConverter(this.pokeInfo.weight)} kg`)
-                  .fontWeight(600)
-              }
-              .width('100%')
-
-              Divider()
-                .strokeWidth(1)
-            }
-            .width('60%')
-            .height('100%')
-            .justifyContent(FlexAlign.Start)
-            .alignItems(HorizontalAlign.Start)
-          }
-          .justifyContent(FlexAlign.Start)
-          .width('100%')
-          .height('30%')
-          .borderRadius(20)
-          .borderWidth(1)
-          .borderColor('#68645c5c')
-
-          Column({ space: 5 }) {
-            Row() {
-              Text("Abilities")
-                .fontWeight(600)
+              Text('Abilities')
                 .fontSize(20)
-            }
-            .width('100%')
-            .justifyContent(FlexAlign.Center)
-
-            ForEach(this.abilities, (item: AbilityInfo, index: number) => {
-              Row() {
-                // Text(`index:${index}`)
-                if (item.is_hidden == true) {
-                  Text(`${item.ability.name} `)
-                    .fontWeight(500)
-                    .fontSize(18)
-                  Text('(Hidden Ability)')
-                    .fontColor('#3c000000')
-                    .fontWeight(500)
-                    .fontSize(18)
-                } else {
-                  Text(`${item.ability.name}`)
-                    .fontWeight(500)
-                    .fontSize(18)
+                .fontWeight(700)
+                .fontColor('#0F0026');
+              ForEach(this.abilities, (item: AbilityInfo) => {
+                Row() {
+                  Text(item.ability.name)
+                    .fontSize(16)
+                    .fontWeight(600)
+                    .fontColor('#0F0026')
+                    .layoutWeight(1);
+                  if (item.is_hidden) {
+                    Text('Hidden')
+                      .fontSize(13)
+                      .fontColor('#6024B5');
+                  }
                 }
-              }
-              .margin(10)
-              .width('100%')
-              .onClick(() => {
-                AppStorage.setOrCreate("url", this.abilityUrlList[index]);
-                AppStorage.setOrCreate("abilityName", item.ability.name);
-
-                this.getUIContext().getRouter().pushUrl({
-                  url: 'pages/AbilityDetail',
-                })
-              })
-            })
-          }
-          .width('100%')
-          .borderWidth(1)
-
-          Column({ space: 5 }) {
-            Row() {
-              Text("Evolution Chart")
-                .fontWeight(600)
-                .fontSize(20)
+                .width('100%')
+                .padding(12)
+                .backgroundColor('#F8F3FF')
+                .borderRadius(12)
+                .onClick(() => {
+                  this.getUIContext().getRouter().pushUrl({
+                    url: 'pages/AbilityDetail',
+                    params: { url: item.ability.url, abilityName: item.ability.name }
+                  });
+                });
+              }, (item: AbilityInfo) => item.ability.url);
             }
             .width('100%')
-            .justifyContent(FlexAlign.Center)
+            .alignItems(HorizontalAlign.Start)
+            .padding(18)
+            .backgroundColor('#FFFFFF')
+            .borderRadius(18);
 
-            Scroll() {
-              Row({ space: 5 }) {
+            Column({ space: 12 }) {
+              Text('Evolution')
+                .fontSize(20)
+                .fontWeight(700)
+                .fontColor('#0F0026');
+              if (this.isEvolutionLoading) {
+                LoadingProgress().color('#6024B5').width(32).height(32);
+              } else if (this.evolutionError) {
+                Text('Evolution data is unavailable.')
+                  .fontSize(15)
+                  .fontColor('#5E5470');
+                Button('Retry evolution')
+                  .backgroundColor('#6024B5')
+                  .onClick(() => this.loadEvolution());
+              } else if (this.evolutionSpecies.length === 0) {
+                Text('No evolution data is available.')
+                  .fontSize(15)
+                  .fontColor('#5E5470');
+              } else {
                 List({ scroller: this.scroller }) {
                   ForEach(this.evolutionSpecies, (item: Species) => {
                     ListItem() {
-                      Column() {
-                        Image(`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${extractLastNumber(item.url)}.png`)// 显示图片
-                          .width(80)// 设置图片宽度
-                          .height(80) // 设置图片高度
-                        Text(item.name)// 显示宝可梦名称
-                          .fontSize(16)
-                          .padding({ top: 5 });
-                        Text(`No. ${extractLastNumber(item.url)}`)// 显示编号
-                          .fontSize(14)
-                          .fontColor('#666');
-                      }
-                      .margin({ left: 10, right: 10 }) // 每个宝可梦间距
+                      this.EvolutionItem(item);
                     }
                     .onClick(() => {
-                      AppStorage.setOrCreate("pokeName", item.name);
-                      AppStorage.setOrCreate("pokeId", extractLastNumber(item.url));
-                      AppStorage.setOrCreate("pokeImage",
-                        `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${extractLastNumber(item.url)}.png`);
+                      const id = extractLastNumber(item.url);
                       this.getUIContext().getRouter().pushUrl({
-                        url: 'pages/PokeDetail'
-                      })
-                    })
-                  });
+                        url: 'pages/PokeDetail',
+                        params: {
+                          pokeName: item.name,
+                          pokeId: id,
+                          pokeImage: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`
+                        }
+                      });
+                    });
+                  }, (item: Species) => item.url);
                 }
-                .height('20%')
                 .listDirection(Axis.Horizontal)
+                .height(150);
               }
             }
             .width('100%')
+            .alignItems(HorizontalAlign.Start)
+            .padding(18)
+            .backgroundColor('#FFFFFF')
+            .borderRadius(18);
           }
-          .margin({
-            top: 40
-          })
+          .width('100%')
+          .padding({ bottom: 24 });
         }
+        .layoutWeight(1);
       }
     }
-    .height('100%')
     .width('100%')
+    .height('100%')
+    .padding({ left: 16, right: 16 })
+    .backgroundColor('#F8F3FF');
   }
-}
-
-@Extend(Text)
-function typeStyle(backgroundColor: ResourceColor | string, fontColor?: ResourceColor | string) {
-  .fontWeight(600)
-  .margin({
-    left: 10,
-    right: 10
-  })
-  .fontColor(fontColor)
-  .padding(10)
-  .backgroundColor(backgroundColor)
-  .borderRadius(10)
-}
-
-@Extend(Text)
-function labelStyle() {
-  .fontColor('#56000000')
-  .width('40%')
-  .fontWeight(700)
 }
